@@ -54,16 +54,27 @@ export const LINKS: Links = [
 // Socials
 export const SOCIALS: Socials = [
   { 
-    NAME: "Github",
-    ICON: "github",
-    TEXT: "M3T30R",
-    HREF: "https://github.com/"
+    NAME: "Email",
+    ICON: "email",
+    TEXT: "meteor-42@proton.me",
+    HREF: "mail:meteor-42@proton.me"
   },
   { 
-    NAME: "Twitter",
-    ICON: "twitter-x",
-    TEXT: "M3T30R",
-    HREF: "https://twitter.com/",
+    NAME: "Github",
+    ICON: "github",
+    TEXT: "https://github.com/meteor-42",
+    HREF: "https://github.com/meteor-42"
   },
+  { 
+    NAME: "X.com",
+    ICON: "twitter-x",
+    TEXT: "https://x.com/42_meteor",
+    HREF: "https://x.com/42_meteor",
+  },
+  { 
+    NAME: "Telegram",
+    ICON: "telegram",
+    TEXT: "https://t.me/mtr_x42",
+    HREF: "https://t.me/mtr_x42",
+  }
 ]
-
