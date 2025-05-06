@@ -23,7 +23,6 @@ All pages under 100kb (including fonts)
 Rendered in ~40ms on localhost
 
 ## 💻 Commands
-
 All commands are run from the root of the project, from a terminal:
 
 Replace npm with your package manager of choice. `npm`, `pnpm`, `yarn`, `bun`, etc
