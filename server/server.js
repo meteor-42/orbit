@@ -164,8 +164,8 @@ app.post('/webhook', (req, res) => {
           console.error(chalk.red(`❌ Restart failed!`));
           sendTelegramMessage(`❌ Restart failed!`);
         } else {
-          console.log(chalk.green(`✅ Restart successful`));
-          sendTelegramMessage(`✅ Restart successful`);
+          console.log(chalk.green(`✅ Restart successful!`));
+          sendTelegramMessage(`✅ Restart successful!`);
         }
       });
     }
