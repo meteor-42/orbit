@@ -1,5 +1,6 @@
 ---
 import { ViewTransitions } from "astro:transitions"
+import YandexMetrika from "./YandexMetrika.astro"
 
 interface Props {
   title: string
@@ -54,26 +55,9 @@ const { title, description, image = "/open-graph.jpg" } = Astro.props
 <script is:inline src="/js/animate.js"></script>
 <script defer is:inline src="/js/copy.js"></script>
 
-<!-- Yandex Verification -->
+<YandexMetrika />
 
-<!-- Yandex.Metrika counter -->
-<script type="text/javascript" >
-  (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-  m[i].l=1*new Date();
-  for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
-  k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
-  (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
-
-  ym(101716781, "init", {
-       clickmap:true,
-       trackLinks:true,
-       accurateTrackBounce:true
-  });
-</script>
-<noscript><div><img src="https://mc.yandex.ru/watch/101716781" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
-<!-- /Yandex.Metrika counter -->
-
-<!-- <ViewTransitions  /> -->
+<ViewTransitions  />
 
 <script>
   import type { TransitionBeforeSwapEvent } from "astro:transitions/client"
