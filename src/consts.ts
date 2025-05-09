@@ -2,7 +2,7 @@ import type { Site, Page, Links, Socials } from "@types"
 
 // Global
 export const SITE: Site = {
-  TITLE: "METEOR-42",
+  TITLE: "METEOR",
   DESCRIPTION: "Welcome to METEOR, Utility Token for the Decentralized Infrastructure",
   AUTHOR: "GenesisLab",
 }
@@ -60,7 +60,7 @@ export const SOCIALS: Socials = [
     HREF: "https://github.com/meteor-42"
   },
   { 
-    NAME: "X.com",
+    NAME: "Twitter",
     ICON: "twitter-x",
     TEXT: "42_meteor",
     HREF: "https://x.com/42_meteor",
