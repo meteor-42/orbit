@@ -150,28 +150,31 @@ app.post('/webhook', (req, res) => {
 
   res.status(200).send('Webhook received');
 
-  exec('cd /root/orbit/ && git pull && pnpm install && pnpm build', (err, stdout, stderr) => {
-    if (err) {
-      console.error(chalk.red(`❌ Build failed!`));
-      sendTelegramMessage(`❌ Build failed!`);  // Отправляем сообщение в Telegram
-    } else {
-      console.log(chalk.green(`✅ Build successful`));
-      sendTelegramMessage(`✅ Build successful`);
+  // Получаем последний коммит
+  exec('cd /root/orbit && git log -1 --pretty=format:"%h - %s"', (errGit, gitOutput) => {
+    const commitInfo = errGit ? 'Unknown commit' : gitOutput;
 
-      // Теперь перезапускаем приложение
-      exec('pm2 restart all', (err2, stdout2, stderr2) => {
-        if (err2) {
-          console.error(chalk.red(`❌ Restart failed!`));
-          sendTelegramMessage(`❌ Restart failed!`);
-        } else {
-          console.log(chalk.green(`✅ Restart successful!`));
-          sendTelegramMessage(`✅ Restart successful!`);
-        }
-      });
-    }
+    exec('cd /root/orbit/ && git pull && pnpm install && pnpm build', (err, stdout, stderr) => {
+      if (err) {
+        console.error(`❌ Build failed!`);
+        sendTelegramMessage(`❌ Build failed!\n\`${commitInfo}\``);
+      } else {
+        console.log(`✅ Build successful`);
+        sendTelegramMessage(`✅ Build successful\n\`${commitInfo}\``);
+
+        exec('pm2 restart all', (err2, stdout2, stderr2) => {
+          if (err2) {
+            console.error(`❌ Restart failed!`);
+            sendTelegramMessage(`❌ Restart failed!\n\`${commitInfo}\``);
+          } else {
+            console.log(`✅ Restart successful!`);
+            sendTelegramMessage(`✅ Restart successful!\n\`${commitInfo}\``);
+          }
+        });
+      }
+    });
   });
 });
-
 
 // Статические файлы
 app.use('/', express.static(DIST_DIR));
