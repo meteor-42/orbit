@@ -150,28 +150,37 @@ app.post('/webhook', (req, res) => {
 
   res.status(200).send('Webhook received');
 
-  // Получаем последний коммит
-  exec('cd /root/orbit && git log -1 --pretty=format:"%h - %s"', (errGit, gitOutput) => {
-    const commitInfo = errGit ? 'Unknown commit' : gitOutput;
+  const repoPath = '/root/orbit';
 
-    exec('cd /root/orbit/ && git pull && pnpm install && pnpm build', (err, stdout, stderr) => {
-      if (err) {
-        console.error(`❌ Build failed!`);
-        sendTelegramMessage(`❌ Build failed!\n\`${commitInfo}\``);
-      } else {
-        console.log(`✅ Build successful`);
-        sendTelegramMessage(`✅ Build successful\n\`${commitInfo}\``);
+  exec(`cd ${repoPath} && git pull`, (errPull, stdoutPull, stderrPull) => {
+    if (errPull) {
+      console.error('❌ Git pull failed!');
+      sendTelegramMessage(`❌ Git pull failed!\n\`\`\`\n${stderrPull}\n\`\`\``);
+      return;
+    }
 
-        exec('pm2 restart all', (err2, stdout2, stderr2) => {
-          if (err2) {
-            console.error(`❌ Restart failed!`);
-            sendTelegramMessage(`❌ Restart failed!\n\`${commitInfo}\``);
+    exec(`cd ${repoPath} && pnpm install && pnpm build`, (errBuild, stdoutBuild, stderrBuild) => {
+      if (errBuild) {
+        console.error('❌ Build failed!');
+        sendTelegramMessage(`❌ Build failed!\n\`\`\`\n${stderrBuild}\n\`\`\``);
+        return;
+      }
+
+      exec(`cd ${repoPath} && git log -1 --pretty=format:"%h - %s (%cr)"`, (errLog, commitInfo) => {
+        const commitText = errLog ? '⚠️ Commit info not available' : `📦 Last commit:\n\`${commitInfo}\``;
+
+        sendTelegramMessage(`✅ Build successful\n${commitText}`);
+
+        exec(`pm2 restart all`, (errRestart, stdoutRestart, stderrRestart) => {
+          if (errRestart) {
+            console.error('❌ Restart failed!');
+            sendTelegramMessage(`❌ Restart failed!\n\`\`\`\n${stderrRestart}\n\`\`\``);
           } else {
-            console.log(`✅ Restart successful!`);
-            sendTelegramMessage(`✅ Restart successful!\n\`${commitInfo}\``);
+            console.log('✅ Restart successful!');
+            sendTelegramMessage('🔄 App restarted successfully');
           }
         });
-      }
+      });
     });
   });
 });
