@@ -163,12 +163,12 @@ const sslOptions = {
   cert: fs.readFileSync('/etc/letsencrypt/live/meteor-42.xyz/fullchain.pem'),
 };
 
-// HTTPS-сервер
-https.createServer(sslOptions, app).listen(443, () => {
-  console.log(chalk.green('✅ HTTPS server listening on port 443'));
+// HTTPS-сервер слушает только IPv4
+https.createServer(sslOptions, app).listen(443, '0.0.0.0', () => {
+  console.log(chalk.green('✅ HTTPS server listening on port 443 (IPv4 only)'));
 });
 
-// HTTP → HTTPS редирект с защитой
+// HTTP → HTTPS редирект, тоже только IPv4
 http.createServer((req, res) => {
   const hostHeader = req.headers.host;
   const host = hostHeader ? hostHeader.replace(/^www\./, '') : DOMAIN;
@@ -179,6 +179,6 @@ http.createServer((req, res) => {
 
   res.writeHead(301, { "Location": `https://${host}${req.url}` });
   res.end();
-}).listen(80, () => {
-  console.log(chalk.cyan('🌐 HTTP redirect server listening on port 80'));
+}).listen(80, '0.0.0.0', () => {
+  console.log(chalk.cyan('🌐 HTTP redirect server listening on port 80 (IPv4 only)'));
 });
