@@ -149,16 +149,29 @@ app.post('/webhook', (req, res) => {
   }
 
   res.status(200).send('Webhook received');
-  exec('cd /root/orbit/ && git pull && pnpm install && pnpm build && pm2 restart all', (err, stdout, stderr) => {
+
+  exec('cd /root/orbit/ && git pull && pnpm install && pnpm build', (err, stdout, stderr) => {
     if (err) {
-      console.error(chalk.red(`❌Deploy failed!`));
-      sendTelegramMessage(`❌ Deploy failed!`);  // Отправляем сообщение в Telegram
+      console.error(chalk.red(`❌ Build failed!`));
+      sendTelegramMessage(`❌ Build failed!`);  // Отправляем сообщение в Telegram
     } else {
-      console.log(chalk.green(`✅ Deploy successful`));
-      sendTelegramMessage(`✅ Deploy successful`);
+      console.log(chalk.green(`✅ Build successful`));
+      sendTelegramMessage(`✅ Build successful`);
+
+      // Теперь перезапускаем приложение
+      exec('pm2 restart all', (err2, stdout2, stderr2) => {
+        if (err2) {
+          console.error(chalk.red(`❌ Restart failed!`));
+          sendTelegramMessage(`❌ Restart failed!`);
+        } else {
+          console.log(chalk.green(`✅ Restart successful`));
+          sendTelegramMessage(`✅ Restart successful`);
+        }
+      });
     }
   });
 });
+
 
 // Статические файлы
 app.use('/', express.static(DIST_DIR));
