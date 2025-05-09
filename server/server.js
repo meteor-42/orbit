@@ -175,8 +175,8 @@ app.post('/webhook', (req, res) => {
           const [hash, subject, author, date] = logOutput.split('|');
           const commitUrl = `${GITHUB_REPO_URL}/commit/${hash}`;
 
-          const message = `✅ *Build successful*\n` +
-                          `📦 *Last commit:*\n[` +
+          const message = `✅ *Build successful*` +
+                          `📦 *Last commit:*[` +
                           `\`${hash}\`](${commitUrl}) - _${subject}_\n` +
                           `👤 *Author:* ${author}\n🕒 *Date:* ${date}`;
 
