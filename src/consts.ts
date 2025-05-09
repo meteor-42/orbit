@@ -2,14 +2,14 @@ import type { Site, Page, Links, Socials } from "@types"
 
 // Global
 export const SITE: Site = {
-  TITLE: "MTR-42",
-  DESCRIPTION: "Welcome to 0rb1t, Utility Token for the Decentralized Infrastructure",
+  TITLE: "METEOR",
+  DESCRIPTION: "Welcome to METEOR, Utility Token for the Decentralized Infrastructure",
   AUTHOR: "GenesisLab",
 }
 
 // Roadmap Page
 export const ROADMAP: Page = {
-  TITLE: "R O A D M A P",
+  TITLE: "Roadmap",
   DESCRIPTION: "Project milestones and timeline.",
 }
 
