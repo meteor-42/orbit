@@ -7,6 +7,7 @@ const https = require('https');
 const http = require('http');
 const chalk = require('chalk');
 const axios = require('axios');
+const qs = require('querystring');
 require('dotenv').config(); // Подключаем .env файл
 
 // Настройки
@@ -122,19 +123,24 @@ function verifySignature(req) {
 
 function sendTelegramMessage(message) {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-  const data = {
+
+  const data = qs.stringify({
     chat_id: CHAT_ID,
     text: message,
-    parse_mode: 'Markdown', // Поддержка форматирования
-  };
+    parse_mode: 'Markdown'
+  });
 
-  axios.post(url, data)
-    .then(response => {
-      console.log('✅ Telegram message sent successfully');
-    })
-    .catch(error => {
-      console.error('❌ Failed to send Telegram message', error);
-    });
+  axios.post(url, data, {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+  })
+  .then(response => {
+    console.log('✅ Telegram message sent successfully');
+  })
+  .catch(error => {
+    console.error('❌ Telegram error:', error.response ? error.response.data : error.message);
+  });
 }
 
 app.post('/webhook', (req, res) => {
