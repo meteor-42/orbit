@@ -2,7 +2,7 @@ import type { Site, Page, Links, Socials } from "@types"
 
 // Global
 export const SITE: Site = {
-  TITLE: "METEOR",
+  TITLE: "METEOR-42",
   DESCRIPTION: "Welcome to METEOR, Utility Token for the Decentralized Infrastructure",
   AUTHOR: "GenesisLab",
 }
