@@ -127,7 +127,8 @@ function sendTelegramMessage(message) {
   const data = qs.stringify({
     chat_id: CHAT_ID,
     text: message,
-    parse_mode: 'Markdown'
+    parse_mode: 'Markdown',
+    disable_web_page_preview: true  // 👈 ОТКЛЮЧАЕМ ПРЕВЬЮ
   });
 
   axios.post(url, data, {
@@ -174,8 +175,8 @@ app.post('/webhook', (req, res) => {
           const [hash, subject, author, date] = logOutput.split('|');
           const commitUrl = `${GITHUB_REPO_URL}/commit/${hash}`;
 
-          const message = `✅ *Build successful*\n\n` +
-                          `📦 *Last commit:*\n[` +
+          const message = `✅ *Build successful*\n` +
+                          `📦 *Last commit:*[` +
                           `\`${hash}\`](${commitUrl}) - _${subject}_\n` +
                           `👤 *Author:* ${author}\n🕒 *Date:* ${date}`;
 
