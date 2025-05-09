@@ -151,7 +151,7 @@ app.post('/webhook', (req, res) => {
   res.status(200).send('Webhook received');
 
   const repoPath = '/root/orbit';
-  const GITHUB_REPO_URL = 'https://github.com/meteor-42/orbit'; // <-- Укажи свой репозиторий
+  const GITHUB_REPO_URL = 'https://github.com/meteor-42/orbit';
 
   exec(`cd ${repoPath} && git pull`, (errPull, stdoutPull, stderrPull) => {
     if (errPull) {
