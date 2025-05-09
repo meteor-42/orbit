@@ -151,6 +151,7 @@ app.post('/webhook', (req, res) => {
   res.status(200).send('Webhook received');
 
   const repoPath = '/root/orbit';
+  const GITHUB_REPO_URL = 'https://github.com/YOUR_USER/YOUR_REPO'; // <-- Укажи свой репозиторий
 
   exec(`cd ${repoPath} && git pull`, (errPull, stdoutPull, stderrPull) => {
     if (errPull) {
@@ -166,10 +167,20 @@ app.post('/webhook', (req, res) => {
         return;
       }
 
-      exec(`cd ${repoPath} && git log -1 --pretty=format:"%h - %s (%cr)"`, (errLog, commitInfo) => {
-        const commitText = errLog ? '⚠️ Commit info not available' : `📦 Last commit:\n\`${commitInfo}\``;
+      exec(`cd ${repoPath} && git log -1 --pretty=format:"%h|%s|%an|%cr"`, (errLog, logOutput) => {
+        if (errLog || !logOutput.includes('|')) {
+          sendTelegramMessage(`✅ Build successful\n⚠️ Commit info not available`);
+        } else {
+          const [hash, subject, author, date] = logOutput.split('|');
+          const commitUrl = `${GITHUB_REPO_URL}/commit/${hash}`;
 
-        sendTelegramMessage(`✅ Build successful\n${commitText}`);
+          const message = `✅ *Build successful*\n\n` +
+                          `📦 *Last commit:*\n[` +
+                          `\`${hash}\`](${commitUrl}) - _${subject}_\n` +
+                          `👤 *Author:* ${author}\n🕒 *Date:* ${date}`;
+
+          sendTelegramMessage(message);
+        }
 
         exec(`pm2 restart all`, (errRestart, stdoutRestart, stderrRestart) => {
           if (errRestart) {
@@ -177,13 +188,14 @@ app.post('/webhook', (req, res) => {
             sendTelegramMessage(`❌ Restart failed!\n\`\`\`\n${stderrRestart}\n\`\`\``);
           } else {
             console.log('✅ Restart successful!');
-            sendTelegramMessage('🔄 App restarted successfully');
+            sendTelegramMessage('🔄 *App restarted successfully*');
           }
         });
       });
     });
   });
 });
+
 
 // Статические файлы
 app.use('/', express.static(DIST_DIR));
