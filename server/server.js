@@ -145,11 +145,11 @@ app.post('/webhook', (req, res) => {
   res.status(200).send('Webhook received');
   exec('cd /root/orbit/ && git pull && pnpm install && pnpm build && pm2 restart all', (err, stdout, stderr) => {
     if (err) {
-      console.error(chalk.red(`❌ Deploy error:\n${stderr}`));
-      sendTelegramMessage(`❌ Deploy failed: ${stderr}`);  // Отправляем сообщение в Telegram
+      console.error(chalk.red(`❌Deploy failed!`));
+      sendTelegramMessage(`❌ Deploy failed!`);  // Отправляем сообщение в Telegram
     } else {
-      console.log(chalk.green(`✅ Deploy success:\n${stdout}`));
-      sendTelegramMessage(`✅ Deploy successful: ${stdout}`);  // Отправляем сообщение в Telegram
+      console.log(chalk.green(`✅ Deploy successful`));
+      sendTelegramMessage(`✅ Deploy successful`);
     }
   });
 });
