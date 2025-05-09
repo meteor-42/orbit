@@ -60,7 +60,7 @@ export const SOCIALS: Socials = [
     HREF: "https://github.com/meteor-42"
   },
   { 
-    NAME: "X.com",
+    NAME: "Twitter",
     ICON: "twitter-x",
     TEXT: "42_meteor",
     HREF: "https://x.com/42_meteor",
