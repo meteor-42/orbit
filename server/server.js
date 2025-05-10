@@ -200,7 +200,7 @@ app.use((req, res, next) => {
     const start = Date.now(); // Время начала запроса
 
     // Определение IP-адреса клиента
-    const ipRaw = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+    const ipRaw = req.realIp || req.socket.remoteAddress || req.headers['x-forwarded-for'] | '';
     const ip = ipRaw.replace(/^::ffff:/, ''); // Убираем префикс IPv6
 
     // После завершения ответа
