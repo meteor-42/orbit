@@ -1,13 +1,13 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const crypto = require('crypto');
-const { exec } = require('child_process');
 const fs = require('fs');
 const https = require('https');
 const http = require('http');
 const chalk = require('chalk');
 const axios = require('axios');
 const qs = require('querystring');
+const { exec } = require('child_process');
 require('dotenv').config();
 
 // Проверяем аргументы командной строки
