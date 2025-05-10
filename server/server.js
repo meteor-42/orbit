@@ -304,16 +304,16 @@ function verifySignature(req) {
   return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
 }
 
-// 1. Убедитесь, что переменные окружения загружены
-console.log('BOT_TOKEN:', process.env.BOT_TOKEN ? 'exists' : 'missing');
-console.log('CHAT_ID:', process.env.CHAT_ID || 'not set');
-
 // 2. Обновленный обработчик webhook с полной асинхронной цепочкой
 app.post('/webhook', async (req, res) => {
   if (!verifySignature(req)) {
     await sendTelegramMessage("🚨 Invalid webhook signature");
     return res.status(403).send('Invalid signature');
   }
+
+// 1. Убедитесь, что переменные окружения загружены
+console.log('BOT_TOKEN:', process.env.BOT_TOKEN ? 'exists' : 'missing');
+console.log('CHAT_ID:', process.env.CHAT_ID || 'not set');
 
   try {
     // Отправляем немедленный ответ
@@ -343,10 +343,10 @@ async function executeDeployment() {
     await execAsync(`git -C ${repoPath} clean -fd`);
 
     // Шаг 2: Обновление подмодулей
-    await execAsync(`git -C ${repoPath} submodule update --init --recursive`);
+    // await execAsync(`git -C ${repoPath} submodule update --init --recursive`);
 
     // Шаг 3: Установка зависимостей
-    await execAsync(`cd ${repoPath} && pnpm install --force`);
+    // await execAsync(`cd ${repoPath} && pnpm install --force`);
 
     // Шаг 4: Сборка проекта
     await execAsync(`cd ${repoPath} && pnpm build`);
