@@ -304,120 +304,91 @@ function verifySignature(req) {
   return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
 }
 
-// 2. Обновленный обработчик webhook с полной асинхронной цепочкой
-app.post('/webhook', async (req, res) => {
-  if (!verifySignature(req)) {
-    await sendTelegramMessage("🚨 Invalid webhook signature");
-    return res.status(403).send('Invalid signature');
-  }
+function sendTelegramMessage(message) {
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
 
-  // 1. Убедитесь, что переменные окружения загружены
-  console.log('BOT_TOKEN:', process.env.BOT_TOKEN ? 'exists' : 'missing');
-  console.log('CHAT_ID:', process.env.CHAT_ID || 'not set');
+  const data = qs.stringify({
+    chat_id: CHAT_ID,
+    text: message,
+    parse_mode: 'Markdown',
+    disable_web_page_preview: true
+  });
 
-  try {
-    // Отправляем немедленный ответ
-    res.status(200).send('Processing deployment...');
-
-    // Запускаем асинхронный процесс деплоя
-    const deployResult = await executeDeployment();
-    
-    if(deployResult.success) {
-      await sendTelegramMessage(`✅ Deployment successful\nCommit: ${deployResult.commit}`);
-    }
-
-  } catch (error) {
-    await sendTelegramMessage(`🔥 Deployment failed: ${error.message}`);
-    console.error('Deployment error:', error);
-  }
-});
-
-// 3. Асинхронный процесс деплоя
-async function executeDeployment() {
-  const repoPath = '/root/orbit';
-  const branch = 'main';
-  
-  try {
-    // Шаг 1: Сброс репозитория
-    await execAsync(`git -C ${repoPath} reset --hard origin/${branch}`);
-    await execAsync(`git -C ${repoPath} clean -fd`);
-
-    // Шаг 2: Обновление подмодулей
-    // await execAsync(`git -C ${repoPath} submodule update --init --recursive`);
-
-    // Шаг 3: Установка зависимостей
-    // await execAsync(`cd ${repoPath} && pnpm install --force`);
-
-    // Шаг 4: Сборка проекта
-    await execAsync(`cd ${repoPath} && pnpm build`);
-
-    // Шаг 5: Рестарт приложения
-    await execAsync('pm2 restart all');
-
-    // Получаем хэш коммита
-    const commitHash = await getLatestCommitHash();
-
-    return {
-      success: true,
-      commit: commitHash
-    };
-
-  } catch (error) {
-    await sendTelegramMessage(`❌ Error: ${error.stderr.slice(0, 500)}`);
-    throw error;
-  }
-}
-
-// 4. Улучшенная функция отправки сообщений
-async function sendTelegramMessage(text) {
-  if(!process.env.BOT_TOKEN || !process.env.CHAT_ID) {
-    console.error('Telegram credentials missing!');
-    return false;
-  }
-
-  try {
-    const response = await axios.post(
-      `https://api.telegram.org/bot${process.env.BOT_TOKEN}/sendMessage`,
-      {
-        chat_id: process.env.CHAT_ID,
-        text: text.slice(0, 4000),
-        parse_mode: 'Markdown',
-        disable_web_page_preview: true
-      },
-      {
-        timeout: 5000
-      }
-    );
-
-    console.log('Telegram response:', response.data);
-    return true;
-  } catch (error) {
-    console.error('Telegram API Error:', {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message
-    });
-    return false;
-  }
-}
-
-// 5. Промис-обертка для exec
-function execAsync(command) {
-  return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Command failed: ${command}`);
-        reject({error, stdout, stderr});
-      } else {
-        resolve({stdout, stderr});
-      }
-    });
+  axios.post(url, data, {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+  })
+  .then(response => {
+    console.log('✅ Telegram message sent successfully');
+  })
+  .catch(error => {
+    console.error('❌ Telegram error:', error.response ? error.response.data : error.message);
   });
 }
 
+app.post('/webhook', (req, res) => {
+  if (!verifySignature(req)) {
+    return res.status(403).send('Invalid signature.');
+  }
+
+  res.status(200).send('Webhook received');
+
+  const repoPath = '/root/orbit';
+  const branch = 'main'; // Укажите вашу ветку
+  const GITHUB_REPO_URL = 'https://github.com/meteor-42/orbit';
+
+  // 1. Принудительное обновление репозитория
+  exec(`cd ${repoPath} && git fetch --all && git reset --hard origin/${branch} && git clean -fd`, 
+  (errReset, stdoutReset, stderrReset) => {
+    if (errReset) {
+      console.error('❌ Git update failed!');
+      sendTelegramMessage(`❌ Git update failed!\n\`\`\`\n${stderrReset}\n\`\`\``);
+      return;
+    }
+
+    // 2. Установка зависимостей
+    exec(`cd ${repoPath} && pnpm install && pnpm build`, (errBuild, stdoutBuild, stderrBuild) => {
+      if (errBuild) {
+        console.error('❌ Build failed!');
+        sendTelegramMessage(`❌ Build failed!\n\`\`\`\n${stderrBuild}\n\`\`\``);
+        return;
+      }
+
+      // 3. Получение информации о коммите
+      exec(`cd ${repoPath} && git log -1 --pretty=format:"%h|%s|%an|%cr"`, (errLog, logOutput) => {
+        if (errLog || !logOutput.includes('|')) {
+          sendTelegramMessage(`✅ Build successful\n⚠️ Commit info not available`);
+        } else {
+          const [hash, subject, author, date] = logOutput.split('|');
+          const commitUrl = `${GITHUB_REPO_URL}/commit/${hash}`;
+          
+          const message = `✅ *Обновление успешно*\n` +
+                          `📌 Коммит: [\`${hash}\`](${commitUrl})\n` +
+                          `📝 Описание: _${subject}_\n` +
+                          `👤 Автор: ${author}\n🕒 Дата: ${date}`;
+          
+          sendTelegramMessage(message);
+        }
+
+        // 4. Перезапуск приложения
+        exec(`pm2 restart all`, (errRestart) => {
+          if (errRestart) {
+            console.error('❌ Restart failed!');
+            sendTelegramMessage(`❌ Ошибка перезапуска!\n\`\`\`\n${errRestart.message}\n\`\`\``);
+          } else {
+            console.log('✅ Restart successful!');
+            sendTelegramMessage('🔄 Приложение успешно перезапущено');
+          }
+        });
+      });
+    });
+  });
+});
+
 // В начале запуска сервера выводим информацию о режиме blacklist
 if (BLACKLIST_MODE) {
-    console.log(chalk.red('🛑 Blacklist mode is ACTIVE - non-200 responses will be added to black.list'));
+    console.log(chalk.red('🛑 Blacklist mode is ACTIVE - non-200 responses will be added to blacklist.log'));
 } else {
     console.log(chalk.green('✅ Blacklist mode is INACTIVE'));
 }
