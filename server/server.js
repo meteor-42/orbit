@@ -388,7 +388,7 @@ app.post('/webhook', (req, res) => {
 
 // В начале запуска сервера выводим информацию о режиме blacklist
 if (BLACKLIST_MODE) {
-    console.log(chalk.red('🛑 Blacklist mode is ACTIVE - non-200 responses will be added to blacklist.log'));
+    console.log(chalk.red('🛑 Blacklist mode is ACTIVE - non-200 responses will be added to black.list'));
 } else {
     console.log(chalk.green('✅ Blacklist mode is INACTIVE'));
 }
