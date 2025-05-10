@@ -304,25 +304,95 @@ function verifySignature(req) {
   return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
 }
 
-// 1. Обновленная функция отправки сообщений
-async function sendTelegramMessage(text) {
-  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+// 1. Убедитесь, что переменные окружения загружены
+console.log('BOT_TOKEN:', process.env.BOT_TOKEN ? 'exists' : 'missing');
+console.log('CHAT_ID:', process.env.CHAT_ID || 'not set');
+
+// 2. Обновленный обработчик webhook с полной асинхронной цепочкой
+app.post('/webhook', async (req, res) => {
+  if (!verifySignature(req)) {
+    await sendTelegramMessage("🚨 Invalid webhook signature");
+    return res.status(403).send('Invalid signature');
+  }
+
+  try {
+    // Отправляем немедленный ответ
+    res.status(200).send('Processing deployment...');
+
+    // Запускаем асинхронный процесс деплоя
+    const deployResult = await executeDeployment();
+    
+    if(deployResult.success) {
+      await sendTelegramMessage(`✅ Deployment successful\nCommit: ${deployResult.commit}`);
+    }
+
+  } catch (error) {
+    await sendTelegramMessage(`🔥 Deployment failed: ${error.message}`);
+    console.error('Deployment error:', error);
+  }
+});
+
+// 3. Асинхронный процесс деплоя
+async function executeDeployment() {
+  const repoPath = '/root/orbit';
+  const branch = 'main';
   
   try {
-    const response = await axios.post(url, {
-      chat_id: CHAT_ID,
-      text: text.slice(0, 4000), // Обрезаем до 4096 символов
-      parse_mode: 'Markdown',
-      disable_web_page_preview: true
-    }, {
-      headers: {'Content-Type': 'application/json'},
-      timeout: 5000 // Таймаут 5 секунд
-    });
+    // Шаг 1: Сброс репозитория
+    await execAsync(`git -C ${repoPath} reset --hard origin/${branch}`);
+    await execAsync(`git -C ${repoPath} clean -fd`);
 
-    console.log('✅ Telegram message sent:', response.data);
+    // Шаг 2: Обновление подмодулей
+    await execAsync(`git -C ${repoPath} submodule update --init --recursive`);
+
+    // Шаг 3: Установка зависимостей
+    await execAsync(`cd ${repoPath} && pnpm install --force`);
+
+    // Шаг 4: Сборка проекта
+    await execAsync(`cd ${repoPath} && pnpm build`);
+
+    // Шаг 5: Рестарт приложения
+    await execAsync('pm2 restart all');
+
+    // Получаем хэш коммита
+    const commitHash = await getLatestCommitHash();
+
+    return {
+      success: true,
+      commit: commitHash
+    };
+
+  } catch (error) {
+    await sendTelegramMessage(`❌ Error: ${error.stderr.slice(0, 500)}`);
+    throw error;
+  }
+}
+
+// 4. Улучшенная функция отправки сообщений
+async function sendTelegramMessage(text) {
+  if(!process.env.BOT_TOKEN || !process.env.CHAT_ID) {
+    console.error('Telegram credentials missing!');
+    return false;
+  }
+
+  try {
+    const response = await axios.post(
+      `https://api.telegram.org/bot${process.env.BOT_TOKEN}/sendMessage`,
+      {
+        chat_id: process.env.CHAT_ID,
+        text: text.slice(0, 4000),
+        parse_mode: 'Markdown',
+        disable_web_page_preview: true
+      },
+      {
+        timeout: 5000
+      }
+    );
+
+    console.log('Telegram response:', response.data);
     return true;
   } catch (error) {
-    console.error('❌ Telegram API Error:', {
+    console.error('Telegram API Error:', {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message
@@ -331,82 +401,16 @@ async function sendTelegramMessage(text) {
   }
 }
 
-// 2. Исправленный обработчик webhook
-app.post('/webhook', async (req, res) => {
-  if (!verifySignature(req)) {
-    await sendTelegramMessage("🚨 *Invalid webhook signature*");
-    return res.status(403).send('Invalid signature');
-  }
-
-  try {
-    res.status(200).send('Processing...');
-    
-    // Задержка для гарантированной отправки ответа
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    let success = true;
-    const repoPath = '/root/orbit';
-    const branch = 'main';
-
-    // 3. Обновленный процесс деплоя
-    const steps = {
-      reset: await executeStep(
-        `git -C ${repoPath} reset --hard origin/${branch} && git clean -fd`,
-        "Repository Reset"
-      ),
-      submodules: await executeStep(
-        `git -C ${repoPath} submodule update --init --recursive`,
-        "Submodules Update"
-      ),
-      install: await executeStep(
-        `cd ${repoPath} && pnpm install --force`,
-        "Dependencies Install"
-      ),
-      build: await executeStep(
-        `cd ${repoPath} && pnpm build`,
-        "Project Build"
-      ),
-      restart: await executeStep(
-        `pm2 restart all`,
-        "PM2 Restart"
-      )
-    };
-
-    // 4. Формирование финального отчета
-    if (Object.values(steps).every(s => s)) {
-      const commitHash = await getLatestCommitHash();
-      await sendTelegramMessage(
-        `🚀 *Deployment Successful*\n` +
-        `▫️ Commit: [${commitHash}](${GITHUB_REPO_URL}/commit/${commitHash})\n` +
-        `▫️ Steps: ${Object.keys(steps).join(' → ')}`
-      );
-    }
-
-  } catch (error) {
-    await sendTelegramMessage(`🔥 *Critical Error*\n\`${error.message}\``);
-  }
-});
-
-// 5. Вспомогательная функция для выполнения шагов
-async function executeStep(command, name) {
-  try {
-    const {stdout, stderr} = await execAsync(command);
-    console.log(`✅ ${name} success`);
-    return true;
-  } catch (error) {
-    console.error(`❌ ${name} failed`);
-    const errorText = `🛑 *${name} Failed*\n\`\`\`\n${error.stderr.slice(0, 1000)}\n\`\`\``;
-    await sendTelegramMessage(errorText);
-    return false;
-  }
-}
-
-// 6. Промис-обертка для exec
+// 5. Промис-обертка для exec
 function execAsync(command) {
   return new Promise((resolve, reject) => {
     exec(command, (error, stdout, stderr) => {
-      if (error) reject({error, stdout, stderr});
-      else resolve({stdout, stderr});
+      if (error) {
+        console.error(`Command failed: ${command}`);
+        reject({error, stdout, stderr});
+      } else {
+        resolve({stdout, stderr});
+      }
     });
   });
 }
