@@ -304,99 +304,111 @@ function verifySignature(req) {
   return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
 }
 
-function sendTelegramMessage(message) {
+// 1. Обновленная функция отправки сообщений
+async function sendTelegramMessage(text) {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+  
+  try {
+    const response = await axios.post(url, {
+      chat_id: CHAT_ID,
+      text: text.slice(0, 4000), // Обрезаем до 4096 символов
+      parse_mode: 'Markdown',
+      disable_web_page_preview: true
+    }, {
+      headers: {'Content-Type': 'application/json'},
+      timeout: 5000 // Таймаут 5 секунд
+    });
 
-  const data = qs.stringify({
-    chat_id: CHAT_ID,
-    text: message,
-    parse_mode: 'Markdown',
-    disable_web_page_preview: true
-  });
-
-  axios.post(url, data, {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-  })
-  .then(response => {
-    console.log('✅ Telegram message sent successfully');
-  })
-  .catch(error => {
-    console.error('❌ Telegram error:', error.response ? error.response.data : error.message);
-  });
+    console.log('✅ Telegram message sent:', response.data);
+    return true;
+  } catch (error) {
+    console.error('❌ Telegram API Error:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    return false;
+  }
 }
 
-app.post('/webhook', (req, res) => {
+// 2. Исправленный обработчик webhook
+app.post('/webhook', async (req, res) => {
   if (!verifySignature(req)) {
-    return res.status(403).send('Invalid signature.');
+    await sendTelegramMessage("🚨 *Invalid webhook signature*");
+    return res.status(403).send('Invalid signature');
   }
 
-  res.status(200).send('Webhook received');
+  try {
+    res.status(200).send('Processing...');
+    
+    // Задержка для гарантированной отправки ответа
+    await new Promise(resolve => setTimeout(resolve, 100));
 
-  const repoPath = '/root/orbit';
-  const branch = 'main'; // Укажите вашу ветку
-  const GITHUB_REPO_URL = 'https://github.com/meteor-42/orbit';
+    let success = true;
+    const repoPath = '/root/orbit';
+    const branch = 'main';
 
-  // 1. Принудительный сброс репозитория
-  exec(`cd ${repoPath} && git fetch --all && git reset --hard origin/${branch} && git clean -fd`, 
-  (errReset, stdoutReset, stderrReset) => {
-    if (errReset) {
-      console.error('❌ Git reset failed!');
-      sendTelegramMessage(`❌ Reset failed!\n`);
-      return;
+    // 3. Обновленный процесс деплоя
+    const steps = {
+      reset: await executeStep(
+        `git -C ${repoPath} reset --hard origin/${branch} && git clean -fd`,
+        "Repository Reset"
+      ),
+      submodules: await executeStep(
+        `git -C ${repoPath} submodule update --init --recursive`,
+        "Submodules Update"
+      ),
+      install: await executeStep(
+        `cd ${repoPath} && pnpm install --force`,
+        "Dependencies Install"
+      ),
+      build: await executeStep(
+        `cd ${repoPath} && pnpm build`,
+        "Project Build"
+      ),
+      restart: await executeStep(
+        `pm2 restart all`,
+        "PM2 Restart"
+      )
+    };
+
+    // 4. Формирование финального отчета
+    if (Object.values(steps).every(s => s)) {
+      const commitHash = await getLatestCommitHash();
+      await sendTelegramMessage(
+        `🚀 *Deployment Successful*\n` +
+        `▫️ Commit: [${commitHash}](${GITHUB_REPO_URL}/commit/${commitHash})\n` +
+        `▫️ Steps: ${Object.keys(steps).join(' → ')}`
+      );
     }
 
-    console.log('✅ Repository reset successful');
-    
-    // 2. Обновление подмодулей (если есть)
-    exec(`cd ${repoPath} && git submodule update --init --recursive --force`,
-    (errSubmodule, stdoutSub, stderrSub) => {
-      if (errSubmodule) {
-        console.error('❌ Submodule update failed');
-        sendTelegramMessage(`⚠️ Submodule error\n`);
-      }
-
-      // 3. Установка зависимостей
-      exec(`cd ${repoPath} && pnpm install --force`, (errInstall, stdoutInstall, stderrInstall) => {
-        if (errInstall) {
-          console.error('❌ Dependency installation failed!');
-          sendTelegramMessage(`❌ Install failed!\n`);
-          return;
-        }
-
-        // 4. Сборка проекта
-        exec(`cd ${repoPath} && pnpm build`, (errBuild, stdoutBuild, stderrBuild) => {
-          if (errBuild) {
-            console.error('❌ Build failed!');
-            sendTelegramMessage(`❌ Build failed!\n`);
-            return;
-          }
-
-          // 5. Рестарт приложения
-          exec(`pm2 restart all`, (errRestart) => {
-            if (errRestart) {
-              console.error('❌ Restart failed!');
-              sendTelegramMessage(`❌ Restart failed!\n`);
-            } else {
-              console.log('✅ Full deployment successful!');
-              sendTelegramMessage('🚀 Deployment completed!\n' + 
-                `🔗 Commit: ${GITHUB_REPO_URL}/commit/${getLatestCommitHash()}`);
-            }
-          });
-        });
-      });
-    });
-  });
+  } catch (error) {
+    await sendTelegramMessage(`🔥 *Critical Error*\n\`${error.message}\``);
+  }
 });
 
-// Вспомогательная функция для получения hash коммита
-function getLatestCommitHash() {
+// 5. Вспомогательная функция для выполнения шагов
+async function executeStep(command, name) {
   try {
-    return execSync('git rev-parse HEAD').toString().trim();
-  } catch (e) {
-    return 'unknown';
+    const {stdout, stderr} = await execAsync(command);
+    console.log(`✅ ${name} success`);
+    return true;
+  } catch (error) {
+    console.error(`❌ ${name} failed`);
+    const errorText = `🛑 *${name} Failed*\n\`\`\`\n${error.stderr.slice(0, 1000)}\n\`\`\``;
+    await sendTelegramMessage(errorText);
+    return false;
   }
+}
+
+// 6. Промис-обертка для exec
+function execAsync(command) {
+  return new Promise((resolve, reject) => {
+    exec(command, (error, stdout, stderr) => {
+      if (error) reject({error, stdout, stderr});
+      else resolve({stdout, stderr});
+    });
+  });
 }
 
 // В начале запуска сервера выводим информацию о режиме blacklist
