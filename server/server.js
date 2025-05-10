@@ -372,7 +372,7 @@ app.post('/webhook', (req, res) => {
         }
 
         // 4. Перезапуск приложения
-        exec(`pm2 restart all`, (errRestart) => {
+        exec(`pm2 restart app`, (errRestart) => {
           if (errRestart) {
             console.error('❌ Restart failed!');
             sendTelegramMessage(`❌ Ошибка перезапуска!\n\`\`\`\n${errRestart.message}\n\`\`\``);
