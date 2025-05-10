@@ -8,16 +8,15 @@ const http = require('http');
 const chalk = require('chalk');
 const axios = require('axios');
 const qs = require('querystring');
-require('dotenv').config(); // Подключаем .env файл
+require('dotenv').config();
 
 // Проверяем аргументы командной строки
 const BLACKLIST_MODE = process.argv.includes('-blacklist');
-const BLACKLIST_FILE = 'blacklist.log';
+const BLACKLIST_FILE = 'build/blacklist';
 
 // Настройки
 const app = express();
 const secret = process.env.SECRET;
-const DIST_DIR = process.env.DIST_DIR;
 const DOMAIN = process.env.DOMAIN;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
@@ -126,10 +125,10 @@ app.use((req, res, next) => {
   next();
 });
 
+// Обновите список разрешенных методов в middleware проверки методов
 app.use((req, res, next) => {
-  // Разрешён только POST /webhook
   if (
-    (req.method === 'POST' && req.path !== '/webhook') ||
+    (req.method === 'POST' && !['/webhook', '/drop'].some(path => req.path.startsWith(path))) ||
     req.method === 'PUT' ||
     req.method === 'DELETE' ||
     req.method === 'HEAD' ||
@@ -138,7 +137,6 @@ app.use((req, res, next) => {
     console.warn(`⛔ Blocked ${req.method} ${req.originalUrl} from ${req.ip}`);
     return res.status(403).send('Forbidden: Method not allowed');
   }
-
   next();
 });
 
@@ -228,6 +226,52 @@ app.post('/webhook', (req, res) => {
       });
     });
   });
+});
+
+// Добавьте после функции verifySignature
+function executeIptablesCommand(command) {
+  try {
+      const output = execSync(`sudo iptables ${command}`, { encoding: 'utf-8' });
+      return { success: true, output };
+  } catch (error) {
+      return { success: false, error: error.message };
+  }
+}
+
+// Добавьте после middleware CORS
+app.use('/drop/:ip', bodyParser.raw({ type: 'application/json' }));
+
+// Добавьте новые маршруты
+app.post('/drop/:ip', (req, res) => {
+  if (!verifySignature(req)) {
+      return res.status(403).send('Invalid signature');
+  }
+
+  const ip = req.params.ip;
+  const ipv4Regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?){3}$/;
+
+  if (!ipv4Regex.test(ip)) {
+      return res.status(400).send('Invalid IPv4 address');
+  }
+
+  const result = executeIptablesCommand(`-A INPUT -s ${ip} -j DROP`);
+  
+  if (!result.success) {
+      console.error(`❌ Failed to block IP ${ip}:`, result.error);
+      return res.status(500).send('Blocking failed');
+  }
+
+  console.log(`🛑 Blocked IP: ${ip}`);
+  res.send('OK');
+});
+
+app.get('/drop', (req, res) => {
+  try {
+      const output = execSync('sudo iptables -L INPUT -n --line-numbers | grep DROP', { encoding: 'utf-8' });
+      res.type('text/plain').send(output);
+  } catch (error) {
+      res.status(500).send('Error retrieving rules');
+  }
 });
 
 // В начале запуска сервера выводим информацию о режиме blacklist
