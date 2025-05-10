@@ -147,9 +147,11 @@ sudo ip6tables -P OUTPUT DROP
 check_command "Блокировка IPv6"
 
 # Явно блокируем специфичные порты IPv6
-echo "🚫 Явно блокируем порты 51820/udp и 666/tcp для IPv6..."
+echo "🚫 Явно блокируем порты IPv6 (51820/udp, 666/tcp, 80/tcp, 443/tcp)..."
 sudo ip6tables -A INPUT -p udp --dport 51820 -j DROP
 sudo ip6tables -A INPUT -p tcp --dport 666 -j DROP
+sudo ip6tables -A INPUT -p tcp --dport 80 -j DROP
+sudo ip6tables -A INPUT -p tcp --dport 443 -j DROP
 check_command "Блокировка специфичных портов IPv6"
 
 # =============================================
