@@ -141,28 +141,29 @@ const DOMAIN = process.env.DOMAIN;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 
-// Функция для добавления IP в черный список
+// Обновленная функция добавления в черный список
 function addToBlacklist(ip) {
-    if (!BLACKLIST_MODE) return;
+  if (!BLACKLIST_MODE) return;
 
-    // Проверяем, есть ли уже такой IP в файле
-    fs.readFile(BLACKLIST_FILE, 'utf8', (err, data) => {
-        if (err && err.code !== 'ENOENT') {
-            console.error('❌ Error reading blacklist file:', err);
-            return;
-        }
+  fs.readFile(BLACKLIST_FILE, 'utf8', (err, data) => {
+      if (err && err.code !== 'ENOENT') {
+          console.error('❌ Error reading blacklist file:', err);
+          return;
+      }
 
-        const ips = data ? data.split('\n').filter(line => line.trim()) : [];
-        if (!ips.includes(ip)) {
-            fs.appendFile(BLACKLIST_FILE, `${ip}\n`, (err) => {
-                if (err) {
-                    console.error('❌ Error writing to blacklist file:', err);
-                } else {
-                    console.log(`🛑 Added ${ip} to blacklist`);
-                }
-            });
-        }
-    });
+      const ips = data ? data.split('\n').filter(line => line.trim()) : [];
+      if (!ips.includes(ip)) {
+          fs.appendFile(BLACKLIST_FILE, `${ip}\n`, (err) => {
+              if (err) {
+                  console.error('❌ Error writing to blacklist file:', err);
+              } else {
+                  console.log(`🛑 Added ${ip} to blacklist`);
+                  // Отправка уведомления в Telegram
+                  sendTelegramMessage(`🚨 *BANNED IP*\n\`${ip}\``);
+              }
+          });
+      }
+  });
 }
 
 // CORS-заголовки слишком жёсткие
@@ -187,24 +188,19 @@ app.use((req, res, next) => {
     next();
 });
 
-// ==================================================
-// Middleware блокировки X-Forwarded-For
-// ==================================================
+// Обновленный middleware блокировки X-Forwarded-For
 app.use((req, res, next) => {
-  // Блокируем любые запросы с заголовком X-Forwarded-For
   if (req.headers['x-forwarded-for']) {
-    // Определяем реальный IP клиента из соединения
     const realIp = req.socket.remoteAddress.replace(/^::ffff:/, '');
     
-    // Логируем попытку
     console.warn(chalk.red(`🛑 Blocked X-Forwarded-For from ${realIp}`));
     
-    // Добавляем в черный список (если режим активен)
     if (BLACKLIST_MODE) {
       addToBlacklist(realIp);
+      // Дополнительное уведомление для поддельных заголовков
+      sendTelegramMessage(`⚠️ *Spoof Attempt*\nIP: \`${realIp}\`\nHeader: \`${req.headers['x-forwarded-for']}\``);
     }
     
-    // Отправляем ответ с ошибкой
     return res.status(403).json({
       error: "X-Forwarded-For header not allowed",
       yourIp: realIp,
@@ -212,7 +208,6 @@ app.use((req, res, next) => {
     });
   }
   
-  // Для разрешенных запросов устанавливаем реальный IP
   req.realIp = req.socket.remoteAddress.replace(/^::ffff:/, '');
   next();
 });
@@ -239,6 +234,8 @@ app.use((req, res, next) => {
         // Добавление в черный список
         if (BLACKLIST_MODE && res.statusCode !== 200) {
             addToBlacklist(ip);
+             // Уведомление о блокировке по статусу
+             sendTelegramMessage(`🚫 *Auto-Blocked*\nIP: \`${ip}\`\nStatus: ${res.statusCode}`);
         }
 
         // Форматирование времени (Europe/Kaliningrad)
@@ -360,13 +357,13 @@ app.post('/webhook', (req, res) => {
         if (errLog || !logOutput.includes('|')) {
           sendTelegramMessage(`✅ Build successful\n⚠️ Commit info not available`);
         } else {
-          const [hash, subject, author, date] = logOutput.split('|');
+          const [hash, subject, author] = logOutput.split('|');
           const commitUrl = `${GITHUB_REPO_URL}/commit/${hash}`;
           
           const message = `✅ *Обновление успешно*\n` +
                           `📌 Коммит: [\`${hash}\`](${commitUrl})\n` +
                           `📝 Описание: _${subject}_\n` +
-                          `👤 Автор: ${author}\n🕒 Дата: ${date}`;
+                          `👤 Автор: ${author}`;
           
           sendTelegramMessage(message);
         }
