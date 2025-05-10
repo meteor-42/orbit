@@ -231,7 +231,7 @@ app.post('/webhook', (req, res) => {
 // Добавьте после функции verifySignature
 function executeIptablesCommand(command) {
   try {
-      const output = execSync(`sudo iptables ${command}`, { encoding: 'utf-8' });
+      const output = execSync(`iptables ${command}`, { encoding: 'utf-8' });
       return { success: true, output };
   } catch (error) {
       return { success: false, error: error.message };
