@@ -10,6 +10,10 @@ const axios = require('axios');
 const qs = require('querystring');
 require('dotenv').config(); // Подключаем .env файл
 
+// Проверяем аргументы командной строки
+const BLACKLIST_MODE = process.argv.includes('-blacklist');
+const BLACKLIST_FILE = 'blacklist.log';
+
 // Настройки
 const app = express();
 const secret = process.env.SECRET;
@@ -18,71 +22,100 @@ const DOMAIN = process.env.DOMAIN;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 
+// Функция для добавления IP в черный список
+function addToBlacklist(ip) {
+    if (!BLACKLIST_MODE) return;
+
+    // Проверяем, есть ли уже такой IP в файле
+    fs.readFile(BLACKLIST_FILE, 'utf8', (err, data) => {
+        if (err && err.code !== 'ENOENT') {
+            console.error('❌ Error reading blacklist file:', err);
+            return;
+        }
+
+        const ips = data ? data.split('\n').filter(line => line.trim()) : [];
+        if (!ips.includes(ip)) {
+            fs.appendFile(BLACKLIST_FILE, `${ip}\n`, (err) => {
+                if (err) {
+                    console.error('❌ Error writing to blacklist file:', err);
+                } else {
+                    console.log(`🛑 Added ${ip} to blacklist`);
+                }
+            });
+        }
+    });
+}
+
 // CORS-заголовки слишком жёсткие
 app.use((req, res, next) => {
-  const allowedOrigins = ['https://meteor-42.xyz']; // добавь нужные домены
+    const allowedOrigins = ['https://meteor-42.xyz']; // добавь нужные домены
 
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Methods', 'GET');
-  }
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Methods', 'GET');
+    }
 
-  next();
+    next();
 });
 
 // User-Agent фильтрация
 app.use((req, res, next) => {
-  const ua = req.get('User-Agent');
-  if (!ua || ua === '' || /curl|wget|python|scrapy|bot/i.test(ua)) {
-    return res.status(403).send('Forbidden');
-  }
-  next();
+    const ua = req.get('User-Agent');
+    if (!ua || ua === '' || /curl|wget|python|scrapy|bot/i.test(ua)) {
+        return res.status(403).send('Forbidden');
+    }
+    next();
 });
 
 // 🌐 Логирование запросов
 app.use((req, res, next) => {
-  const start = Date.now(); // Время начала запроса
+    const start = Date.now(); // Время начала запроса
 
-  // Определение IP-адреса клиента
-  const ipRaw = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-  const ip = ipRaw.replace(/^::ffff:/, ''); // Убираем префикс IPv6
+    // Определение IP-адреса клиента
+    const ipRaw = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+    const ip = ipRaw.replace(/^::ffff:/, ''); // Убираем префикс IPv6
 
-  // После завершения ответа
-  res.on('finish', () => {
-    const duration = Date.now() - start; // Время обработки запроса
+    // После завершения ответа
+    res.on('finish', () => {
+        const duration = Date.now() - start; // Время обработки запроса
 
-    // Пропускаем логирование редиректов и статики
-    if (
-      res.statusCode === 301 ||
-      res.statusCode === 304 ||
-      /\.(css|js|svg|woff2?|ico|png|jpg|jpeg)$/.test(req.originalUrl)
-    ) return;
+        // Пропускаем логирование редиректов и статики
+        if (
+            res.statusCode === 301 ||
+            res.statusCode === 304 ||
+            /\.(css|js|svg|woff2?|ico|png|jpg|jpeg)$/.test(req.originalUrl)
+        ) return;
 
-    // Формат времени в часовом поясе Калининград
-    const timeStr = new Date().toLocaleString('sv-SE', {
-      timeZone: 'Europe/Kaliningrad',
-      hour12: false
-    }).replace('T', ' ');
+        // Добавляем IP в черный список, если статус не 200 и включен режим blacklist
+        if (BLACKLIST_MODE && res.statusCode !== 200) {
+            addToBlacklist(ip);
+        }
 
-    // Цвет по статус-коду
-    const statusColor =
-      res.statusCode >= 500 ? chalk.red :
-      res.statusCode >= 400 ? chalk.yellow :
-      chalk.green;
+        // Формат времени в часовом поясе Калининград
+        const timeStr = new Date().toLocaleString('sv-SE', {
+            timeZone: 'Europe/Kaliningrad',
+            hour12: false
+        }).replace('T', ' ');
 
-    // Вывод в консоль
-    console.log(
-      `${chalk.gray(`[${timeStr}]`)} ` +                // 🕒 Время
-      `${chalk.cyan(ip)} ` +                            // 🌐 IP клиента
-      `${chalk.magenta(req.method)} ` +                 // 🔠 Метод запроса
-      `${chalk.blue(req.originalUrl)} ` +               // 🔗 URL
-      `${statusColor(res.statusCode)} ` +               // 📟 Статус-код
-      `${chalk.white(`${duration}ms`)}`                 // ⏱️ Время обработки
-    );
-  });
+        // Цвет по статус-коду
+        const statusColor =
+            res.statusCode >= 500 ? chalk.red :
+            res.statusCode >= 400 ? chalk.yellow :
+            chalk.green;
 
-  next(); // Передаём управление следующему middleware
+        // Вывод в консоль
+        console.log(
+            `${chalk.gray(`[${timeStr}]`)} ` +                // 🕒 Время
+            `${chalk.cyan(ip)} ` +                            // 🌐 IP клиента
+            `${chalk.magenta(req.method)} ` +                 // 🔠 Метод запроса
+            `${chalk.blue(req.originalUrl)} ` +               // 🔗 URL
+            `${statusColor(res.statusCode)} ` +               // 📟 Статус-код
+            `${chalk.white(`${duration}ms`)}`                 // ⏱️ Время обработки
+        );
+    });
+
+    next(); // Передаём управление следующему middleware
 });
 
 // ✅ Редирект www → non-www
@@ -197,9 +230,15 @@ app.post('/webhook', (req, res) => {
   });
 });
 
+// В начале запуска сервера выводим информацию о режиме blacklist
+if (BLACKLIST_MODE) {
+    console.log(chalk.red('🛑 Blacklist mode is ACTIVE - non-200 responses will be added to blacklist.log'));
+} else {
+    console.log(chalk.green('✅ Blacklist mode is INACTIVE'));
+}
 
-// Статические файлы
-app.use('/', express.static(DIST_DIR));
+// На это (укажите реальный путь к папке с файлами):
+app.use('/', express.static('/root/orbit/server/build'));
 
 // SSL сертификаты
 const sslOptions = {
