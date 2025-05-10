@@ -267,7 +267,7 @@ app.post('/drop/:ip', (req, res) => {
 
 app.get('/drop', (req, res) => {
   try {
-      const output = execSync('sudo iptables -L INPUT -n --line-numbers | grep DROP', { encoding: 'utf-8' });
+      const output = execSync('iptables -L INPUT -n --line-numbers | grep DROP', { encoding: 'utf-8' });
       res.type('text/plain').send(output);
   } catch (error) {
       res.status(500).send('Error retrieving rules');
