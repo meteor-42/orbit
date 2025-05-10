@@ -390,7 +390,7 @@ app.post('/webhook', (req, res) => {
   });
 });
 
-// Вспомогательная функция для получения хэша коммита
+// Вспомогательная функция для получения hash коммита
 function getLatestCommitHash() {
   try {
     return execSync('git rev-parse HEAD').toString().trim();
