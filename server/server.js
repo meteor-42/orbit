@@ -187,62 +187,86 @@ app.use((req, res, next) => {
     next();
 });
 
+// ==================================================
+// Middleware блокировки X-Forwarded-For
+// ==================================================
 app.use((req, res, next) => {
+  // Блокируем любые запросы с заголовком X-Forwarded-For
   if (req.headers['x-forwarded-for']) {
-    console.warn(`Blocked X-Forwarded-For from ${req.socket.remoteAddress}`);
-    return res.status(403).send('X-Forwarded-For not allowed');
+    // Определяем реальный IP клиента из соединения
+    const realIp = req.socket.remoteAddress.replace(/^::ffff:/, '');
+    
+    // Логируем попытку
+    console.warn(chalk.red(`🛑 Blocked X-Forwarded-For from ${realIp}`));
+    
+    // Добавляем в черный список (если режим активен)
+    if (BLACKLIST_MODE) {
+      addToBlacklist(realIp);
+    }
+    
+    // Отправляем ответ с ошибкой
+    return res.status(403).json({
+      error: "X-Forwarded-For header not allowed",
+      yourIp: realIp,
+      timestamp: new Date().toISOString()
+    });
   }
+  
+  // Для разрешенных запросов устанавливаем реальный IP
+  req.realIp = req.socket.remoteAddress.replace(/^::ffff:/, '');
   next();
 });
 
-// 🌐 Логирование запросов
+// ==================================================
+// Обновленный Middleware логирования
+// ==================================================
 app.use((req, res, next) => {
-    const start = Date.now(); // Время начала запроса
+    const start = Date.now();
 
-    // Определение IP-адреса клиента
-    const ipRaw = req.realIp || req.socket.remoteAddress || req.headers['x-forwarded-for'] | '';
-    const ip = ipRaw.replace(/^::ffff:/, ''); // Убираем префикс IPv6
+    // Используем только проверенный IP из предыдущего middleware
+    const ip = req.realIp;
 
-    // После завершения ответа
     res.on('finish', () => {
-        const duration = Date.now() - start; // Время обработки запроса
+        const duration = Date.now() - start;
 
-        // Пропускаем логирование редиректов и статики
+        // Пропускаем логирование для:
         if (
-            res.statusCode === 301 ||
-            res.statusCode === 304 ||
-            /\.(css|js|svg|woff2?|ico|png|jpg|jpeg)$/.test(req.originalUrl)
+            res.statusCode === 301 ||  // Редиректы
+            res.statusCode === 304 ||  // Not Modified
+            /\.(css|js|svg|woff2?|ico|png|jpg|jpeg)$/.test(req.originalUrl) // Статика
         ) return;
 
-        // Добавляем IP в черный список, если статус не 200 и включен режим blacklist
+        // Добавление в черный список
         if (BLACKLIST_MODE && res.statusCode !== 200) {
             addToBlacklist(ip);
         }
 
-        // Формат времени в часовом поясе Калининград
-        const timeStr = new Date().toLocaleString('sv-SE', {
-            timeZone: 'Europe/Kaliningrad',
-            hour12: false
-        }).replace('T', ' ');
+        // Форматирование времени (Europe/Kaliningrad)
+        const timeStr = new Date()
+            .toLocaleString('sv-SE', {
+                timeZone: 'Europe/Kaliningrad',
+                hour12: false
+            })
+            .replace('T', ' ');
 
-        // Цвет по статус-коду
-        const statusColor =
+        // Цветовая схема для статусов
+        const statusColor = 
             res.statusCode >= 500 ? chalk.red :
             res.statusCode >= 400 ? chalk.yellow :
             chalk.green;
 
-        // Вывод в консоль
+        // Форматированный вывод в консоль
         console.log(
-            `${chalk.gray(`[${timeStr}]`)} ` +                // 🕒 Время
-            `${chalk.cyan(ip)} ` +                            // 🌐 IP клиента
-            `${chalk.magenta(req.method)} ` +                 // 🔠 Метод запроса
-            `${chalk.blue(req.originalUrl)} ` +               // 🔗 URL
-            `${statusColor(res.statusCode)} ` +               // 📟 Статус-код
-            `${chalk.white(`${duration}ms`)}`                 // ⏱️ Время обработки
+            `${chalk.gray(`[${timeStr}]`)} ` +       // Временная метка
+            `${chalk.cyan(ip)} ` +                    // IP клиента
+            `${chalk.magenta(req.method)} ` +         // HTTP-метод
+            `${chalk.blue(req.originalUrl)} ` +       // URL запроса
+            `${statusColor(res.statusCode)} ` +       // Статус ответа
+            `${chalk.white(`${duration}ms`)}`         // Время обработки
         );
     });
 
-    next(); // Передаём управление следующему middleware
+    next();
 });
 
 // ✅ Редирект www → non-www
