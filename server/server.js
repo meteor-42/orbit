@@ -311,9 +311,9 @@ app.post('/webhook', async (req, res) => {
     return res.status(403).send('Invalid signature');
   }
 
-// 1. Убедитесь, что переменные окружения загружены
-console.log('BOT_TOKEN:', process.env.BOT_TOKEN ? 'exists' : 'missing');
-console.log('CHAT_ID:', process.env.CHAT_ID || 'not set');
+  // 1. Убедитесь, что переменные окружения загружены
+  console.log('BOT_TOKEN:', process.env.BOT_TOKEN ? 'exists' : 'missing');
+  console.log('CHAT_ID:', process.env.CHAT_ID || 'not set');
 
   try {
     // Отправляем немедленный ответ
