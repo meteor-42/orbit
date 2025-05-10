@@ -12,7 +12,7 @@ require('dotenv').config();
 
 // Проверяем аргументы командной строки
 const BLACKLIST_MODE = process.argv.includes('-blacklist');
-const BLACKLIST_FILE = 'build/blacklist';
+const BLACKLIST_FILE = 'build/blacklist.log';
 
 // Настройки
 const app = express();
