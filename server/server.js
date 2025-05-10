@@ -343,7 +343,7 @@ app.post('/webhook', (req, res) => {
   (errReset, stdoutReset, stderrReset) => {
     if (errReset) {
       console.error('❌ Git reset failed!');
-      sendTelegramMessage(`❌ Reset failed!\n${stderrReset}`);
+      sendTelegramMessage(`❌ Reset failed!\n`);
       return;
     }
 
@@ -354,14 +354,14 @@ app.post('/webhook', (req, res) => {
     (errSubmodule, stdoutSub, stderrSub) => {
       if (errSubmodule) {
         console.error('❌ Submodule update failed');
-        sendTelegramMessage(`⚠️ Submodule error\n${stderrSub}`);
+        sendTelegramMessage(`⚠️ Submodule error\n`);
       }
 
       // 3. Установка зависимостей
       exec(`cd ${repoPath} && pnpm install --force`, (errInstall, stdoutInstall, stderrInstall) => {
         if (errInstall) {
           console.error('❌ Dependency installation failed!');
-          sendTelegramMessage(`❌ Install failed!\n${stderrInstall}`);
+          sendTelegramMessage(`❌ Install failed!\n`);
           return;
         }
 
@@ -369,7 +369,7 @@ app.post('/webhook', (req, res) => {
         exec(`cd ${repoPath} && pnpm build`, (errBuild, stdoutBuild, stderrBuild) => {
           if (errBuild) {
             console.error('❌ Build failed!');
-            sendTelegramMessage(`❌ Build failed!\n${stderrBuild}`);
+            sendTelegramMessage(`❌ Build failed!\n`);
             return;
           }
 
@@ -377,7 +377,7 @@ app.post('/webhook', (req, res) => {
           exec(`pm2 restart all`, (errRestart) => {
             if (errRestart) {
               console.error('❌ Restart failed!');
-              sendTelegramMessage(`❌ Restart failed!\n${errRestart.message}`);
+              sendTelegramMessage(`❌ Restart failed!\n`);
             } else {
               console.log('✅ Full deployment successful!');
               sendTelegramMessage('🚀 Deployment completed!\n' + 
