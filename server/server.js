@@ -335,50 +335,69 @@ app.post('/webhook', (req, res) => {
   res.status(200).send('Webhook received');
 
   const repoPath = '/root/orbit';
+  const branch = 'main'; // Укажите вашу ветку
   const GITHUB_REPO_URL = 'https://github.com/meteor-42/orbit';
 
-  exec(`cd ${repoPath} && git pull`, (errPull, stdoutPull, stderrPull) => {
-    if (errPull) {
-      console.error('❌ Git pull failed!');
-      sendTelegramMessage(`❌ Git pull failed!\n\`\`\`\n${stderrPull}\n\`\`\``);
+  // 1. Принудительный сброс репозитория
+  exec(`cd ${repoPath} && git fetch --all && git reset --hard origin/${branch} && git clean -fd`, 
+  (errReset, stdoutReset, stderrReset) => {
+    if (errReset) {
+      console.error('❌ Git reset failed!');
+      sendTelegramMessage(`❌ Reset failed!\n${stderrReset}`);
       return;
     }
 
-    exec(`cd ${repoPath} && pnpm install && pnpm build`, (errBuild, stdoutBuild, stderrBuild) => {
-      if (errBuild) {
-        console.error('❌ Build failed!');
-        sendTelegramMessage(`❌ Build failed!\n\`\`\`\n${stderrBuild}\n\`\`\``);
-        return;
+    console.log('✅ Repository reset successful');
+    
+    // 2. Обновление подмодулей (если есть)
+    exec(`cd ${repoPath} && git submodule update --init --recursive --force`,
+    (errSubmodule, stdoutSub, stderrSub) => {
+      if (errSubmodule) {
+        console.error('❌ Submodule update failed');
+        sendTelegramMessage(`⚠️ Submodule error\n${stderrSub}`);
       }
 
-      exec(`cd ${repoPath} && git log -1 --pretty=format:"%h|%s|%an|%cr"`, (errLog, logOutput) => {
-        if (errLog || !logOutput.includes('|')) {
-          sendTelegramMessage(`✅ Build successful\n⚠️ Commit info not available`);
-        } else {
-          const [hash, subject, author, date] = logOutput.split('|');
-          const commitUrl = `${GITHUB_REPO_URL}/commit/${hash}`;
-
-          const message = `✅ *Build successful*\n` +
-                          `📦 *Last commit:*[` +
-                          `\`${hash}\`](${commitUrl}) - _${subject}_\n` +
-                          `👤 *Author:* ${author}\n🕒 *Date:* ${date}`;
-
-          sendTelegramMessage(message);
+      // 3. Установка зависимостей
+      exec(`cd ${repoPath} && pnpm install --force`, (errInstall, stdoutInstall, stderrInstall) => {
+        if (errInstall) {
+          console.error('❌ Dependency installation failed!');
+          sendTelegramMessage(`❌ Install failed!\n${stderrInstall}`);
+          return;
         }
 
-        exec(`pm2 restart all`, (errRestart, stdoutRestart, stderrRestart) => {
-          if (errRestart) {
-            console.error('❌ Restart failed!');
-            sendTelegramMessage(`❌ Restart failed!\n\`\`\`\n${stderrRestart}\n\`\`\``);
-          } else {
-            console.log('✅ Restart successful!');
-            sendTelegramMessage('🔄 *App restarted successfully*');
+        // 4. Сборка проекта
+        exec(`cd ${repoPath} && pnpm build`, (errBuild, stdoutBuild, stderrBuild) => {
+          if (errBuild) {
+            console.error('❌ Build failed!');
+            sendTelegramMessage(`❌ Build failed!\n${stderrBuild}`);
+            return;
           }
+
+          // 5. Рестарт приложения
+          exec(`pm2 restart all`, (errRestart) => {
+            if (errRestart) {
+              console.error('❌ Restart failed!');
+              sendTelegramMessage(`❌ Restart failed!\n${errRestart.message}`);
+            } else {
+              console.log('✅ Full deployment successful!');
+              sendTelegramMessage('🚀 Deployment completed!\n' + 
+                `🔗 Commit: ${GITHUB_REPO_URL}/commit/${getLatestCommitHash()}`);
+            }
+          });
         });
       });
     });
   });
 });
+
+// Вспомогательная функция для получения хэша коммита
+function getLatestCommitHash() {
+  try {
+    return execSync('git rev-parse HEAD').toString().trim();
+  } catch (e) {
+    return 'unknown';
+  }
+}
 
 // В начале запуска сервера выводим информацию о режиме blacklist
 if (BLACKLIST_MODE) {
