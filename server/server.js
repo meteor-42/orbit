@@ -132,7 +132,6 @@ require('dotenv').config();
 
 // Проверяем аргументы командной строки
 const BLACKLIST_MODE = process.argv.includes('-blacklist');
-const BLACKLIST_FILE = 'build/black.list';
 
 // Настройки
 const app = express();
@@ -141,29 +140,18 @@ const DOMAIN = process.env.DOMAIN;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 
-// Обновленная функция добавления в черный список
-function addToBlacklist(ip) {
+// Уведомления о блокировках
+function notifyBlockedIP(ip, reason = '') {
   if (!BLACKLIST_MODE) return;
+  
+  const message = `🚨 *BLOCKED*\n` +
+                 `▫️ IP: \`${ip}\`\n` +
+                 `▫️ Причина: ${reason || 'Неверный статус ответа'}\n` +
+                 `▫️ Время: ${new Date().toLocaleString('ru-RU', {
+                   timeZone: 'Europe/Kaliningrad'
+                 })}`;
 
-  fs.readFile(BLACKLIST_FILE, 'utf8', (err, data) => {
-      if (err && err.code !== 'ENOENT') {
-          console.error('❌ Error reading blacklist file:', err);
-          return;
-      }
-
-      const ips = data ? data.split('\n').filter(line => line.trim()) : [];
-      if (!ips.includes(ip)) {
-          fs.appendFile(BLACKLIST_FILE, `${ip}\n`, (err) => {
-              if (err) {
-                  console.error('❌ Error writing to blacklist file:', err);
-              } else {
-                  console.log(`🛑 Added ${ip} to blacklist`);
-                  // Отправка уведомления в Telegram
-                  sendTelegramMessage(`🚨 *BANNED IP*\n\`${ip}\``);
-              }
-          });
-      }
-  });
+  sendTelegramMessage(message);
 }
 
 // CORS-заголовки слишком жёсткие
@@ -188,26 +176,16 @@ app.use((req, res, next) => {
     next();
 });
 
-// Обновленный middleware блокировки X-Forwarded-For
+// Блокировка поддельных заголовков
 app.use((req, res, next) => {
   if (req.headers['x-forwarded-for']) {
     const realIp = req.socket.remoteAddress.replace(/^::ffff:/, '');
-    
-    console.warn(chalk.red(`🛑 Blocked X-Forwarded-For from ${realIp}`));
-    
-    if (BLACKLIST_MODE) {
-      addToBlacklist(realIp);
-      // Дополнительное уведомление для поддельных заголовков
-      sendTelegramMessage(`⚠️ *Spoof Attempt*\nIP: \`${realIp}\`\nHeader: \`${req.headers['x-forwarded-for']}\``);
-    }
-    
+    notifyBlockedIP(realIp, 'Поддельный X-Forwarded-For');
     return res.status(403).json({
-      error: "X-Forwarded-For header not allowed",
-      yourIp: realIp,
-      timestamp: new Date().toISOString()
+      error: "Заголовок X-Forwarded-For запрещен",
+      yourIp: realIp
     });
   }
-  
   req.realIp = req.socket.remoteAddress.replace(/^::ffff:/, '');
   next();
 });
@@ -233,9 +211,7 @@ app.use((req, res, next) => {
 
         // Добавление в черный список
         if (BLACKLIST_MODE && res.statusCode !== 200) {
-            addToBlacklist(ip);
-             // Уведомление о блокировке по статусу
-             sendTelegramMessage(`🚫 *Auto-Blocked*\nIP: \`${ip}\`\nStatus: ${res.statusCode}`);
+          notifyBlockedIP(ip, `Статус: ${res.statusCode}`);
         }
 
         // Форматирование времени (Europe/Kaliningrad)
@@ -385,7 +361,7 @@ app.post('/webhook', (req, res) => {
 
 // В начале запуска сервера выводим информацию о режиме blacklist
 if (BLACKLIST_MODE) {
-    console.log(chalk.red('🛑 Blacklist mode is ACTIVE - non-200 responses will be added to black.list'));
+    console.log(chalk.red('🛑 Blacklist mode is ACTIVE - non-200 responses will be blocked'));
 } else {
     console.log(chalk.green('✅ Blacklist mode is INACTIVE'));
 }
