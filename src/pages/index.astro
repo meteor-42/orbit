@@ -10,30 +10,6 @@ const projects = (await getCollection("projects"))
   .filter(project => !project.data.draft)
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
   .slice(0,3)
-
-let priceDisplay = "N/A";
-try {
-  const response = await fetch("https://api.geckoterminal.com/api/v2/networks/arbitrum/tokens/0x912ce59144191c1204e64559fe8253a0e49e6548");
-  
-  if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-  
-  const data = await response.json();
-  
-  // Проверяем всю цепочку данных
-  const rawPrice = data?.data?.attributes?.price_usd;
-  
-  if (rawPrice) {
-    // Преобразуем строку в число и форматируем
-    const numericPrice = parseFloat(rawPrice);
-    priceDisplay = !isNaN(numericPrice) 
-      ? `${numericPrice.toFixed(4)}` 
-      : "N/A";
-  }
-  
-} catch (error) {
-  console.error("Price fetch error:", error);
-  priceDisplay = "N/A";
-}
 ---
 
 <PageLayout title="Home" description={SITE.DESCRIPTION}>
@@ -81,7 +57,7 @@ try {
         M 3 T 3 0 R - 42
       </p> 
       <p class="animated text-sm md:text-base lg:text-lg font-mono tracking-widest mt-1">
-        - InfraPay Token : {priceDisplay} USDC -
+        - InfraPay Token -
       </p>
       <p class="animated text-sm md:text-base lg:text-sm opacity-75 mt-5">
         Use M3T30R to pay for VPN access, services, <br class="hidden md:inline" /> and tools across the Arbitrum-based ecosystem.
