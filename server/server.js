@@ -146,8 +146,8 @@ function notifyBlockedIP(ip, reason = '') {
   
   const message = `🚨 *BLOCKED*\n` +
                  `▫️ IP: \`${ip}\`\n` +
-                 `▫️ Причина: ${reason || 'Неверный статус ответа'}\n` +
-                 `▫️ Время: ${new Date().toLocaleString('ru-RU', {
+                 `▫️ Reason: ${reason || 'Неверный статус ответа'}\n` +
+                 `▫️ Time: ${new Date().toLocaleString('ru-RU', {
                    timeZone: 'Europe/Kaliningrad'
                  })}`;
 
@@ -180,9 +180,9 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   if (req.headers['x-forwarded-for']) {
     const realIp = req.socket.remoteAddress.replace(/^::ffff:/, '');
-    notifyBlockedIP(realIp, 'Поддельный X-Forwarded-For');
+    notifyBlockedIP(realIp, 'X-Forwarded-For');
     return res.status(403).json({
-      error: "Заголовок X-Forwarded-For запрещен",
+      error: "Header X-Forwarded-For Forbidden",
       yourIp: realIp
     });
   }
@@ -336,10 +336,10 @@ app.post('/webhook', (req, res) => {
           const [hash, subject, author] = logOutput.split('|');
           const commitUrl = `${GITHUB_REPO_URL}/commit/${hash}`;
           
-          const message = `✅ *Обновление успешно*\n` +
-                          `📌 Коммит: [\`${hash}\`](${commitUrl})\n` +
-                          `📝 Описание: _${subject}_\n` +
-                          `👤 Автор: ${author}`;
+          const message = `✅ *Git Update*\n` +
+                          `📌 Commit: [\`${hash}\`](${commitUrl})\n` +
+                          `📝 Info: _${subject}_\n` +
+                          `👤 Autor: ${author}`;
           
           sendTelegramMessage(message);
         }
