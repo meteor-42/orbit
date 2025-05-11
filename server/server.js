@@ -146,7 +146,7 @@ function notifyBlockedIP(ip, reason = '') {
   
   const message = `🚨 *BLOCKED*\n` +
                  `▫️ IP: \`${ip}\`\n` +
-                 `▫️ Reason: ${reason || 'Неверный статус ответа'}\n` +
+                 `▫️ Reason: ${reason || 'Wrong Response'}\n` +
                  `▫️ Time: ${new Date().toLocaleString('ru-RU', {
                    timeZone: 'Europe/Kaliningrad'
                  })}`;
@@ -211,7 +211,7 @@ app.use((req, res, next) => {
 
         // Добавление в черный список
         if (BLACKLIST_MODE && res.statusCode !== 200) {
-          notifyBlockedIP(ip, `Статус: ${res.statusCode}`);
+          notifyBlockedIP(ip, `Status: ${res.statusCode}`);
         }
 
         // Форматирование времени (Europe/Kaliningrad)
