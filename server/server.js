@@ -128,6 +128,7 @@ const chalk = require('chalk');
 const axios = require('axios');
 const qs = require('querystring');
 const { exec } = require('child_process');
+const path = require('path');
 require('dotenv').config();
 
 // Проверяем аргументы командной строки
