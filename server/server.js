@@ -143,15 +143,31 @@ const CHAT_ID = process.env.CHAT_ID;
 // Уведомления о блокировках
 function notifyBlockedIP(ip, reason = '') {
   if (!BLACKLIST_MODE) return;
-  
-  const message = `🚨 *BLOCKED*\n` +
-                 `▫️ IP: \`${ip}\`\n` +
-                 `▫️ Reason: ${reason || 'Wrong Response'}\n` +
-                 `▫️ Time: ${new Date().toLocaleString('ru-RU', {
-                   timeZone: 'Europe/Kaliningrad'
-                 })}`;
 
-  sendTelegramMessage(message);
+  const listPath = path.resolve(__dirname, 'black.list');
+
+  // Прочитать файл или создать если его нет
+  fs.readFile(listPath, 'utf8', (err, data) => {
+    const existingIPs = err ? [] : data.split('\n').filter(Boolean);
+
+    // Если IP уже есть — не добавляем и не отправляем уведомление
+    if (existingIPs.includes(ip)) return;
+
+    // Добавить IP в файл
+    fs.appendFile(listPath, ip + '\n', (err) => {
+      if (err) console.error('Ошибка записи в black.list:', err);
+    });
+
+    // Отправить уведомление в Telegram
+    const message = `🚨 *BLOCKED*\n` +
+      `▫️ IP: \`${ip}\`\n` +
+      `▫️ Reason: ${reason || 'Wrong Response'}\n` +
+      `▫️ Time: ${new Date().toLocaleString('ru-RU', {
+        timeZone: 'Europe/Kaliningrad'
+      })}`;
+
+    sendTelegramMessage(message);
+  });
 }
 
 // CORS-заголовки слишком жёсткие
@@ -176,19 +192,26 @@ app.use((req, res, next) => {
     next();
 });
 
-// Блокировка поддельных заголовков
+// Middleware: Block spoofed X-Forwarded-For headers
 app.use((req, res, next) => {
+  const clientIp = req.socket.remoteAddress?.replace(/^::ffff:/, '') || 'unknown';
+
+  // Check for presence of spoofed X-Forwarded-For header
   if (req.headers['x-forwarded-for']) {
-    const realIp = req.socket.remoteAddress.replace(/^::ffff:/, '');
-    notifyBlockedIP(realIp, 'X-Forwarded-For');
+    notifyBlockedIP(clientIp, 'Spoofed X-Forwarded-For header');
+
     return res.status(403).json({
-      error: "Header X-Forwarded-For Forbidden",
-      yourIp: realIp
+      error: 'Forbidden header: X-Forwarded-For',
+      yourIp: clientIp
     });
   }
-  req.realIp = req.socket.remoteAddress.replace(/^::ffff:/, '');
+
+  // Attach the real client IP to the request object
+  req.realIp = clientIp;
+
   next();
 });
+
 
 // ==================================================
 // Обновленный Middleware логирования
