@@ -31,7 +31,7 @@ function sendToTelegram(message) {
   const data = JSON.stringify({
     chat_id: CHAT_ID,
     text: message,
-    parse_mode: "Markdown"
+    parse_mode: "HTML" // Используем HTML вместо Markdown
   });
 
   const options = {
@@ -64,12 +64,12 @@ contract.on("Swap", (sender, recipient, amount0, amount1, sqrtPriceX96, liquidit
     const amount1Float = parseFloat(ethers.utils.formatUnits(amount1, 6));
 
     // Покупка ARB за USDC
-    if (amount0.gt(0) && amount1.lt(0) && Math.abs(amount1Float) >= 10) {
+    if (amount0.gt(0) && amount1.lt(0) && Math.abs(amount1Float) >= 10000) {
       const txHash = event.transactionHash;
       const arbiscanLink = `https://arbiscan.io/tx/${txHash}`;
 
       const log = `
-✅ Swap (Покупка ARB):
+✅ Swap:
 🔸 Sender:     ${sender}
 🔸 Recipient:  ${recipient}
 🔸 amount0:    ${amount0Float.toFixed(4)} ARB
@@ -81,12 +81,13 @@ contract.on("Swap", (sender, recipient, amount0, amount1, sqrtPriceX96, liquidit
       console.log(log);
 
       // Сообщение в Telegram
-      const tgMessage = `*🔥 Swap Alert (Покупка ARB)*\n` +
-        `🔸 *Sender:* [${sender}](https://arbiscan.io/address/${sender})\n` +
-        `🔸 *Recipient:* [${recipient}](https://arbiscan.io/address/${recipient})\n` +
-        `🔸 *amount0:* ${amount0Float.toFixed(4)} ARB\n` +
-        `🔸 *amount1:* ${amount1Float.toFixed(2)} USDC\n` +
-        `🔗 [Открыть в Arbiscan](${arbiscanLink})`;
+      const tgMessage = `
+✅ Swap Alert
+🔸 Sender: ${sender}
+🔸 Recipient: ${recipient}
+🔸 amount0: ${amount0Float.toFixed(4)} ARB
+🔸 amount1: ${amount1Float.toFixed(2)} USDC
+`;
 
       sendToTelegram(tgMessage);
     }
