@@ -99,5 +99,5 @@ function tailFile(filePath) {
 }
 
 // ▶️ Запуск скрипта
-console.log(chalk.blue('📡 Real-time SSH log monitor started...\n'));
+console.log(chalk.blue('📡 Real-time SSH log monitor started...'));
 tailFile(AUTH_LOG);
