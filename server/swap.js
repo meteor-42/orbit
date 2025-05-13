@@ -18,7 +18,7 @@ const CHAT_ID = "-1002522849408";
 const WS_URL = "wss://arbitrum-one-rpc.publicnode.com";
 const provider = new ethers.providers.WebSocketProvider(WS_URL);
 
-const POOL_ADDRESS = "0xcda53b1f66614552f834ceef361a8d12a0b8dad8"; // ARB/USDC
+const POOL_ADDRESS = "0xC6962004f452bE9203591991D15f6b388e09E8D0"; // ETH/USDC Pool
 const POOL_ABI = [
   "event Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)"
 ];
@@ -64,7 +64,7 @@ contract.on("Swap", (sender, recipient, amount0, amount1, sqrtPriceX96, liquidit
     const amount1Float = parseFloat(ethers.utils.formatUnits(amount1, 6));
 
     // Покупка ARB за USDC
-    if (amount0.gt(0) && amount1.lt(0) && Math.abs(amount1Float) >= 10000) {
+    if (amount0.gt(0) && amount1.lt(0) && Math.abs(amount1Float) >= 100000) {
       const txHash = event.transactionHash;
       const arbiscanLink = `https://arbiscan.io/tx/${txHash}`;
 
@@ -72,7 +72,7 @@ contract.on("Swap", (sender, recipient, amount0, amount1, sqrtPriceX96, liquidit
 ✅ Swap:
 🔸 Sender:     ${sender}
 🔸 Recipient:  ${recipient}
-🔸 amount0:    ${amount0Float.toFixed(4)} ARB
+🔸 amount0:    ${amount0Float.toFixed(4)} ETH
 🔸 amount1:    ${amount1Float.toFixed(2)} USDC
 🔸 Tick:       ${tick}
 🔗 Tx Hash:    ${txHash}
@@ -85,7 +85,7 @@ contract.on("Swap", (sender, recipient, amount0, amount1, sqrtPriceX96, liquidit
 ✅ Swap Alert
 🔸 Sender: ${sender}
 🔸 Recipient: ${recipient}
-🔸 amount0: ${amount0Float.toFixed(4)} ARB
+🔸 amount0: ${amount0Float.toFixed(4)} ETH
 🔸 amount1: ${amount1Float.toFixed(2)} USDC
 `;
 
