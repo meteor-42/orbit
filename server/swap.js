@@ -25,7 +25,7 @@ const POOL_ABI = [
 
 const contract = new ethers.Contract(POOL_ADDRESS, POOL_ABI, provider);
 
-console.log("📡 Подключен к WebSocket для событий Swap на пуле ARB/USDC...");
+console.log("📡 Подключен к WebSocket для событий Swap на пуле ETH/USDC...");
 
 function sendToTelegram(message) {
   const data = JSON.stringify({
