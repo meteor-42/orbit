@@ -142,30 +142,42 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 
 // Уведомления о блокировках
-function notifyBlockedIP(ip, reason = '') {
+async function notifyBlockedIP(ip, reason = '') {
   if (!BLACKLIST_MODE) return;
 
   const listPath = path.resolve(__dirname, 'black.list');
 
   // Прочитать файл или создать если его нет
-  fs.readFile(listPath, 'utf8', (err, data) => {
+  fs.readFile(listPath, 'utf8', async (err, data) => {
     const existingIPs = err ? [] : data.split('\n').filter(Boolean);
 
-    // Если IP уже есть — не добавляем и не отправляем уведомление
     if (existingIPs.includes(ip)) return;
 
-    // Добавить IP в файл
     fs.appendFile(listPath, ip + '\n', (err) => {
       if (err) console.error('Ошибка записи в black.list:', err);
     });
 
-    // Отправить уведомление в Telegram
+    // 🔍 Геолокация
+    let location = '🌍 Unknown';
+    try {
+      const geo = await axios.get(`http://ip-api.com/json/${ip}?fields=country,city,status,message`);
+      if (geo.data.status === 'success') {
+        location = `🌍 ${geo.data.country}, ${geo.data.city}`;
+      }
+    } catch (e) {
+      console.warn('IP Geolocation failed:', e.message);
+    }
+
+    // ⏰ Время по Калининграду
+    const time = new Date().toLocaleString('ru-RU', {
+      timeZone: 'Europe/Kaliningrad'
+    });
+
     const message = `🚨 *BLOCKED*\n` +
       `▫️ IP: \`${ip}\`\n` +
+      `▫️ ${location}\n` +
       `▫️ Reason: ${reason || 'Wrong Response'}\n` +
-      `▫️ Time: ${new Date().toLocaleString('ru-RU', {
-        timeZone: 'Europe/Kaliningrad'
-      })}`;
+      `▫️ Time: ${time}`;
 
     sendTelegramMessage(message);
   });
@@ -369,7 +381,7 @@ app.post('/webhook', (req, res) => {
         }
 
         // 4. Перезапуск приложения
-        exec(`pm2 restart app`, (errRestart) => {
+        exec(`pm2 restart all`, (errRestart) => {
           if (errRestart) {
             console.error('❌ Restart failed!');
             sendTelegramMessage(`❌ Ошибка перезапуска!\n\`\`\`\n${errRestart.message}\n\`\`\``);
